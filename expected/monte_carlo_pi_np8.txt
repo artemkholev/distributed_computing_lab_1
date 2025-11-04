@@ -1,0 +1,5 @@
+Monte Carlo Pi:
+  total_samples: 50000000
+  pi_estimate: 3.14135944
+  elapsed_sec: 0.148472
+elapsed 1.00

@@ -1,0 +1,2 @@
+Block-wise multiplication verified for 10 x 7 matrix.
+elapsed 0.83

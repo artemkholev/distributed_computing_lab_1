@@ -1,0 +1,2 @@
+Row-wise multiplication verified for 10 x 6 matrix.
+elapsed 0.84

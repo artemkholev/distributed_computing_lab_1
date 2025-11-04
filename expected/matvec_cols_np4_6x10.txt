@@ -1,0 +1,2 @@
+Column-wise multiplication verified for 6 x 10 matrix.
+elapsed 0.86

@@ -1,0 +1,2 @@
+Cannon's algorithm verified for 64 x 64 matrices.
+elapsed 0.77

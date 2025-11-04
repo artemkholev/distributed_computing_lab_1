@@ -1,0 +1,2 @@
+Column-wise multiplication verified for 8 x 8 matrix.
+elapsed 0.80

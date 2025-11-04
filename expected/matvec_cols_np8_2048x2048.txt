@@ -1,0 +1,2 @@
+Column-wise multiplication verified for 2048 x 2048 matrix.
+elapsed 1.11
