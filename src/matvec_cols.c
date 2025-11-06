@@ -14,7 +14,7 @@ static void ComputeLocalContribution(int rows, int local_cols, const int *local_
     const int *local_vector, int *partial_result);
 static void ReduceResults(int my_rank, int rows, const int *partial_result, int *final_result);
 static void Validate(int my_rank, const int *matrix, const int *vector, const int *result,
-    int rows, int cols);
+    int rows, int cols, double elapsed);
 
 int main(int argc, char **argv)
 {
@@ -35,6 +35,9 @@ int main(int argc, char **argv)
         MPI_Finalize();
         return EXIT_FAILURE;
     }
+
+    double start = 0.0;
+    double elapsed = 0.0;
 
     int *col_counts = calloc(comm_sz, sizeof(int));
     int *col_displs = calloc(comm_sz, sizeof(int));
@@ -63,11 +66,16 @@ int main(int argc, char **argv)
     const int local_cols = col_counts[my_rank];
     const int local_size = rows * (local_cols > 0 ? local_cols : 1);
     int *local_matrix = calloc(local_size, sizeof(int));
-    MPI_Scatterv(packed_matrix, scatter_counts, scatter_displs, MPI_INT, local_matrix,
-        scatter_counts[my_rank], MPI_INT, 0, MPI_COMM_WORLD);
 
     int *vector = calloc(cols > 0 ? cols : 1, sizeof(int));
     GenerateVector(my_rank, cols, vector);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    start = MPI_Wtime();
+
+    MPI_Scatterv(packed_matrix, scatter_counts, scatter_displs, MPI_INT, local_matrix,
+        scatter_counts[my_rank], MPI_INT, 0, MPI_COMM_WORLD);
+
     MPI_Bcast(vector, cols, MPI_INT, 0, MPI_COMM_WORLD);
 
     int *local_vector = calloc(local_cols > 0 ? local_cols : 1, sizeof(int));
@@ -87,7 +95,10 @@ int main(int argc, char **argv)
     }
     ReduceResults(my_rank, rows, partial_result, final_result);
 
-    Validate(my_rank, matrix, vector, final_result, rows, cols);
+    MPI_Barrier(MPI_COMM_WORLD);
+    elapsed = MPI_Wtime() - start;
+
+    Validate(my_rank, matrix, vector, final_result, rows, cols, elapsed);
 
     free(final_result);
     free(partial_result);
@@ -198,7 +209,7 @@ static void ReduceResults(int my_rank, int rows, const int *partial_result, int 
 }
 
 static void Validate(int my_rank, const int *matrix, const int *vector, const int *result,
-    int rows, int cols)
+    int rows, int cols, double elapsed)
 {
     if (my_rank != 0) {
         return;
@@ -215,8 +226,10 @@ static void Validate(int my_rank, const int *matrix, const int *vector, const in
         }
     }
     if (ok) {
-        printf("Постолбцовое умножение проверено для матрицы %d x %d.\n", rows, cols);
+        printf("Постолбцовое умножение проверено для матрицы %d x %d (время: %.6f с).\n", rows,
+            cols, elapsed);
     } else {
-        printf("Обнаружено несоответствие в постолбцовом умножении.\n");
+        printf(
+            "Обнаружено несоответствие в постолбцовом умножении (время: %.6f с).\n", elapsed);
     }
 }

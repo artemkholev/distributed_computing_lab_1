@@ -21,7 +21,7 @@ static void ReduceRowResults(int my_rank, int grid_dim, int local_rows, int *par
 static void GatherRowBlocks(int my_rank, int grid_dim, const int *row_counts,
     const int *row_displs, int local_rows, const int *row_result, int *global_result);
 static void Validate(int my_rank, const int *matrix, const int *vector, const int *result,
-    int rows, int cols);
+    int rows, int cols, double elapsed);
 
 int main(int argc, char **argv)
 {
@@ -52,6 +52,9 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
+    double start = 0.0;
+    double elapsed = 0.0;
+
     int *row_counts = calloc(grid_dim, sizeof(int));
     int *row_displs = calloc(grid_dim, sizeof(int));
     int *col_counts = calloc(grid_dim, sizeof(int));
@@ -74,6 +77,10 @@ int main(int argc, char **argv)
     GenerateMatrix(my_rank, rows, cols, matrix);
 
     int *local_matrix = calloc(local_rows * (local_cols > 0 ? local_cols : 1), sizeof(int));
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    start = MPI_Wtime();
+
     DistributeBlocks(matrix, local_matrix, rows, cols, row_counts, row_displs, col_counts,
         col_displs, my_rank, grid_dim, local_rows, local_cols);
 
@@ -100,7 +107,10 @@ int main(int argc, char **argv)
     GatherRowBlocks(my_rank, grid_dim, row_counts, row_displs, local_rows, row_result,
         global_result);
 
-    Validate(my_rank, matrix, vector, global_result, rows, cols);
+    MPI_Barrier(MPI_COMM_WORLD);
+    elapsed = MPI_Wtime() - start;
+
+    Validate(my_rank, matrix, vector, global_result, rows, cols, elapsed);
 
     free(global_result);
     free(row_result);
@@ -320,7 +330,7 @@ static void GatherRowBlocks(int my_rank, int grid_dim, const int *row_counts,
 }
 
 static void Validate(int my_rank, const int *matrix, const int *vector, const int *result,
-    int rows, int cols)
+    int rows, int cols, double elapsed)
 {
     if (my_rank != 0) {
         return;
@@ -337,8 +347,9 @@ static void Validate(int my_rank, const int *matrix, const int *vector, const in
         }
     }
     if (ok) {
-        printf("Блочное умножение проверено для матрицы %d x %d.\n", rows, cols);
+        printf("Блочное умножение проверено для матрицы %d x %d (время: %.6f с).\n", rows, cols,
+            elapsed);
     } else {
-        printf("Обнаружено несоответствие при блочном умножении.\n");
+        printf("Обнаружено несоответствие при блочном умножении (время: %.6f с).\n", elapsed);
     }
 }

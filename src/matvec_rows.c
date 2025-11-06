@@ -16,7 +16,7 @@ static void ComputeLocalProduct(int local_rows, int cols, const int *local_matri
 static void GatherResults(const int *local_result, int *global_result, const int *row_counts,
     const int *row_displs, int local_rows);
 static void Validate(int my_rank, const int *matrix, const int *vector, const int *result,
-    int rows, int cols);
+    int rows, int cols, double elapsed);
 
 int main(int argc, char **argv)
 {
@@ -38,6 +38,9 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
+    double start = 0.0;
+    double elapsed = 0.0;
+
     int *row_counts = calloc(comm_sz, sizeof(int));
     int *row_displs = calloc(comm_sz, sizeof(int));
     int *scatter_counts = calloc(comm_sz, sizeof(int));
@@ -58,6 +61,10 @@ int main(int argc, char **argv)
 
     int *vector = calloc(cols > 0 ? cols : 1, sizeof(int));
     GenerateVector(my_rank, cols, vector);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    start = MPI_Wtime();
+
     MPI_Bcast(vector, cols, MPI_INT, 0, MPI_COMM_WORLD);
 
     const int local_rows = row_counts[my_rank];
@@ -75,7 +82,10 @@ int main(int argc, char **argv)
     }
     GatherResults(local_result, global_result, row_counts, row_displs, local_rows);
 
-    Validate(my_rank, matrix, vector, global_result, rows, cols);
+    MPI_Barrier(MPI_COMM_WORLD);
+    elapsed = MPI_Wtime() - start;
+
+    Validate(my_rank, matrix, vector, global_result, rows, cols, elapsed);
 
     free(global_result);
     free(local_result);
@@ -183,7 +193,7 @@ static void GatherResults(const int *local_result, int *global_result, const int
 }
 
 static void Validate(int my_rank, const int *matrix, const int *vector, const int *result,
-    int rows, int cols)
+    int rows, int cols, double elapsed)
 {
     if (my_rank != 0) {
         return;
@@ -200,8 +210,10 @@ static void Validate(int my_rank, const int *matrix, const int *vector, const in
         }
     }
     if (ok) {
-        printf("Построчное умножение проверено для матрицы %d x %d.\n", rows, cols);
+        printf("Построчное умножение проверено для матрицы %d x %d (время: %.6f с).\n", rows, cols,
+            elapsed);
     } else {
-        printf("Обнаружено несоответствие в построчном умножении.\n");
+        printf(
+            "Обнаружено несоответствие в построчном умножении (время: %.6f с).\n", elapsed);
     }
 }

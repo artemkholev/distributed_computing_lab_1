@@ -12,7 +12,8 @@ static void DistributeBlocks(const int *matrix, int *local_block, int size, int 
 static void MultiplyLocal(int block_dim, const int *a, const int *b, int *c);
 static void GatherBlocks(const int *local_block, int size, int block_dim, int my_rank,
     int grid_dim, int *result);
-static void Validate(int my_rank, int size, const int *a, const int *b, const int *c);
+static void Validate(int my_rank, int size, const int *a, const int *b, const int *c,
+    double elapsed);
 
 int main(int argc, char **argv)
 {
@@ -51,6 +52,9 @@ int main(int argc, char **argv)
     const int block_dim = size / grid_dim;
     const int block_elems = block_dim * block_dim;
 
+    double start = 0.0;
+    double elapsed = 0.0;
+
     int *matrix_a = NULL;
     int *matrix_b = NULL;
     if (my_rank == 0) {
@@ -63,6 +67,9 @@ int main(int argc, char **argv)
     int *local_a = calloc(block_elems, sizeof(int));
     int *local_b = calloc(block_elems, sizeof(int));
     int *local_c = calloc(block_elems, sizeof(int));
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    start = MPI_Wtime();
 
     DistributeBlocks(matrix_a, local_a, size, block_dim, my_rank, grid_dim);
     DistributeBlocks(matrix_b, local_b, size, block_dim, my_rank, grid_dim);
@@ -110,7 +117,10 @@ int main(int argc, char **argv)
     }
     GatherBlocks(local_c, size, block_dim, my_rank, grid_dim, matrix_c);
 
-    Validate(my_rank, size, matrix_a, matrix_b, matrix_c);
+    MPI_Barrier(MPI_COMM_WORLD);
+    elapsed = MPI_Wtime() - start;
+
+    Validate(my_rank, size, matrix_a, matrix_b, matrix_c, elapsed);
 
     free(matrix_c);
     free(local_c);
@@ -235,7 +245,8 @@ static void GatherBlocks(const int *local_block, int size, int block_dim, int my
     }
 }
 
-static void Validate(int my_rank, int size, const int *a, const int *b, const int *c)
+static void Validate(int my_rank, int size, const int *a, const int *b, const int *c,
+    double elapsed)
 {
     if (my_rank != 0) {
         return;
@@ -257,8 +268,9 @@ static void Validate(int my_rank, int size, const int *a, const int *b, const in
         }
     }
     if (ok) {
-        printf("Алгоритм Кэннона проверен для матриц %d x %d.\n", size, size);
+        printf("Алгоритм Кэннона проверен для матриц %d x %d (время: %.6f с).\n", size, size,
+            elapsed);
     } else {
-        printf("Обнаружено несоответствие при алгоритме Кэннона.\n");
+        printf("Обнаружено несоответствие при алгоритме Кэннона (время: %.6f с).\n", elapsed);
     }
 }
